@@ -1,0 +1,31 @@
+rm -f chadwm drw.o dwm.o util.o chadwm-6.5.tar.gz config.h
+chadwm build options:
+CFLAGS   = -std=c99 -pedantic -Wall -Wno-deprecated-declarations -O3 -march=native -I/usr/include/X11 -I/usr/include/freetype2 -D_DEFAULT_SOURCE -D_BSD_SOURCE -D_XOPEN_SOURCE=700L -DVERSION="6.5" -DXINERAMA -Wno-unused-function
+LDFLAGS  = -L/usr/lib/X11 -lX11 -lXinerama -lfontconfig -lXft -lXrender -lImlib2 -lXext
+CC       = cc
+cp config.def.h config.h
+cc -c -std=c99 -pedantic -Wall -Wno-deprecated-declarations -O3 -march=native -I/usr/include/X11 -I/usr/include/freetype2 -D_DEFAULT_SOURCE -D_BSD_SOURCE -D_XOPEN_SOURCE=700L -DVERSION=\"6.5\" -DXINERAMA -Wno-unused-function drw.c
+cc -c -std=c99 -pedantic -Wall -Wno-deprecated-declarations -O3 -march=native -I/usr/include/X11 -I/usr/include/freetype2 -D_DEFAULT_SOURCE -D_BSD_SOURCE -D_XOPEN_SOURCE=700L -DVERSION=\"6.5\" -DXINERAMA -Wno-unused-function dwm.c
+In file included from dwm.c:423:
+config.h:131:90: warning: excess elements in struct initializer
+  131 |     { "sublime_text",       NULL,              NULL,    0,          1,          -1, 800, 600, 1 },
+      |                                                                                          ^~~
+config.h:131:90: note: (near initialization for ‘rules[2]’)
+config.h:131:95: warning: excess elements in struct initializer
+  131 |     { "sublime_text",       NULL,              NULL,    0,          1,          -1, 800, 600, 1 },
+      |                                                                                               ^
+config.h:131:95: note: (near initialization for ‘rules[2]’)
+cc -c -std=c99 -pedantic -Wall -Wno-deprecated-declarations -O3 -march=native -I/usr/include/X11 -I/usr/include/freetype2 -D_DEFAULT_SOURCE -D_BSD_SOURCE -D_XOPEN_SOURCE=700L -DVERSION=\"6.5\" -DXINERAMA -Wno-unused-function util.c
+cc -o chadwm drw.o dwm.o util.o -L/usr/lib/X11 -lX11 -lXinerama -lfontconfig -lXft -lXrender -lImlib2 -lXext
+# Create the target directory for the binary if it doesn't exist
+mkdir -p /usr/local/bin
+# Copy the compiled binary to the target directory, force overwriting if it exist
+cp -f chadwm /usr/local/bin
+# Set the permissions of the copied binary to be readable and executable by everyone, writable by the owner
+chmod 755 /usr/local/bin/chadwm
+# Create the target directory for the manual pages if it doesn't exist
+mkdir -p /usr/local/share/man/man1
+# Replace the placeholder VERSION with the actual version in the manual page and copy it to the target directory
+sed "s/VERSION/6.5/g" < chadwm.1 > /usr/local/share/man/man1/chadwm.1
+# Set the permissions of the copied manual page to be readable by everyone, writable by the owner
+chmod 644 /usr/local/share/man/man1/chadwm.1

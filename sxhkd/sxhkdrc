@@ -94,6 +94,10 @@ super + k
 super + v
     pavucontrol
 
+#Proxmox-Win11-VM
+super + w
+    /home/dale/scripts/launch-win11.fish    
+
 #Pragha
 #super + m
 #    pragha

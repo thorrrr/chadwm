@@ -2050,95 +2050,116 @@ void killclient(const Arg *arg) {
 }
 
 void manage(Window w, XWindowAttributes *wa) {
-  Client *c, *t = NULL;
-  Window trans = None;
-  XWindowChanges wc;
+    Client *c, *t = NULL;
+    Window trans = None;
+    XWindowChanges wc;
 
-  c = ecalloc(1, sizeof(Client));
-  c->win = w;
-  /* geometry */
-  c->x = c->oldx = wa->x;
-  c->y = c->oldy = wa->y;
-  c->w = c->oldw = wa->width;
-  c->h = c->oldh = wa->height;
-  c->oldbw = wa->border_width;
-  c->cfact = 1.0;
+    c = ecalloc(1, sizeof(Client));
+    c->win = w;
 
- 	updateicon(c);
-  updatetitle(c);
-  if (XGetTransientForHint(dpy, w, &trans) && (t = wintoclient(trans))) {
-    c->mon = t->mon;
-    c->tags = t->tags;
-  } else {
-    c->mon = selmon;
-    applyrules(c);
-  }
+    /* geometry setup */
+    c->x = c->oldx = wa->x;
+    c->y = c->oldy = wa->y;
+    c->w = c->oldw = wa->width;
+    c->h = c->oldh = wa->height;
+    c->oldbw = wa->border_width;
+    c->cfact = 1.0;
 
-  if (c->x + WIDTH(c) > c->mon->wx + c->mon->ww)
-	  c->x = c->mon->wx + c->mon->ww - WIDTH(c);
-  if (c->y + HEIGHT(c) > c->mon->wy + c->mon->wh)
-	  c->y = c->mon->wy + c->mon->wh - HEIGHT(c);
-  c->x = MAX(c->x, c->mon->wx);
-  c->y = MAX(c->y, c->mon->wy);
-  c->bw = c->mon->borderpx;
-  if (c->x == c->mon->wx && c->y == c->mon->wy) { /* patch */
-    c->x = c->mon->mx + (c->mon->mw -  WIDTH(c)) / 2;
-    c->y = c->mon->my + (c->mon->mh - HEIGHT(c)) / 2;
-  }
-  wc.border_width = c->bw;
-  XConfigureWindow(dpy, w, CWBorderWidth, &wc);
-  XSetWindowBorder(dpy, w, scheme[SchemeNorm][ColBorder].pixel);
-  configure(c); /* propagates border_width, if size doesn't change */
-  updatewindowtype(c);
-  updatesizehints(c);
-  updatewmhints(c);
-  	{
-		int format;
-		unsigned long *data, n, extra;
-		Monitor *m;
-		Atom atom;
-		if (XGetWindowProperty(dpy, c->win, netatom[NetClientInfo], 0L, 2L, False, XA_CARDINAL,
-				&atom, &format, &n, &extra, (unsigned char **)&data) == Success && n == 2) {
-			c->tags = *data;
-			for (m = mons; m; m = m->next) {
-				if (m->num == *(data+1)) {
-					c->mon = m;
-					break;
-				}
-			}
-		}
-		if (n > 0)
-			XFree(data);
-	}
-	setclienttagprop(c);
+    updateicon(c);
+    updatetitle(c);
 
-  if (c->iscentered) {
-    c->x = c->mon->mx + (c->mon->mw - WIDTH(c)) / 2;
-    c->y = c->mon->my + (c->mon->mh - HEIGHT(c)) / 2;
-  }
-  XSelectInput(dpy, w,
-               EnterWindowMask | FocusChangeMask | PropertyChangeMask |
-                   StructureNotifyMask);
-  grabbuttons(c, 0);
-  if (!c->isfloating)
-	  c->isfloating = c->oldstate = trans != None || c->isfixed;
-  if (c->isfloating)
-    XRaiseWindow(dpy, c->win);
-  attach(c);
-  attachstack(c);
-  XChangeProperty(dpy, root, netatom[NetClientList], XA_WINDOW, 32,
-                  PropModeAppend, (unsigned char *)&(c->win), 1);
-  XMoveResizeWindow(dpy, c->win, c->x + 2 * sw, c->y, c->w,
-                    c->h); /* some windows require this */
-	if (!HIDDEN(c))
-		setclientstate(c, NormalState);
-  if (c->mon == selmon)
-    unfocus(selmon->sel, 0);
-  c->mon->sel = c;
-  arrange(c->mon);
-	if (!HIDDEN(c))
-		XMapWindow(dpy, c->win);
-  focus(NULL);
+    /* Handle transient windows (e.g., dialog boxes) */
+    if (XGetTransientForHint(dpy, w, &trans) && (t = wintoclient(trans))) {
+        c->mon = t->mon;
+        c->tags = t->tags;
+    } else {
+        c->mon = selmon;
+        applyrules(c);
+    }
+
+    /* Center scratchpads if floating and matching names */
+    if (c->isfloating &&
+    (strstr(c->name, "spterm") || strstr(c->name, "sp-fm") || strstr(c->name, "sp-ncmpcpp"))) {
+        c->x = c->mon->wx + (c->mon->ww - WIDTH(c)) / 2;
+        c->y = c->mon->wy + (c->mon->wh - HEIGHT(c)) / 2;
+
+    // Ensure scratchpad stays within the monitor's boundaries
+    if (c->y < c->mon->wy)
+        c->y = c->mon->wy + 10;  // Add a small offset from the bar
+}
+    /* Ensure the window is within screen bounds */
+    if (c->x + WIDTH(c) > c->mon->wx + c->mon->ww)
+        c->x = c->mon->wx + c->mon->ww - WIDTH(c);
+    if (c->y + HEIGHT(c) > c->mon->wy + c->mon->wh)
+        c->y = c->mon->wy + c->mon->wh - HEIGHT(c);
+    c->x = MAX(c->x, c->mon->wx);
+    c->y = MAX(c->y, c->mon->wy);
+    c->bw = c->mon->borderpx;
+
+    /* Handle default centering */
+    if (c->x == c->mon->wx && c->y == c->mon->wy) { /* patch */
+        c->x = c->mon->mx + (c->mon->mw - WIDTH(c)) / 2;
+        c->y = c->mon->my + (c->mon->mh - HEIGHT(c)) / 2;
+    }
+
+    wc.border_width = c->bw;
+    XConfigureWindow(dpy, w, CWBorderWidth, &wc);
+    XSetWindowBorder(dpy, w, scheme[SchemeNorm][ColBorder].pixel);
+    configure(c); /* propagates border_width, if size doesn't change */
+    updatewindowtype(c);
+    updatesizehints(c);
+    updatewmhints(c);
+
+    /* Handle EWMH (extended window manager hints) */
+    {
+        int format;
+        unsigned long *data, n, extra;
+        Monitor *m;
+        Atom atom;
+        if (XGetWindowProperty(dpy, c->win, netatom[NetClientInfo], 0L, 2L, False, XA_CARDINAL,
+                               &atom, &format, &n, &extra, (unsigned char **)&data) == Success && n == 2) {
+            c->tags = *data;
+            for (m = mons; m; m = m->next) {
+                if (m->num == *(data + 1)) {
+                    c->mon = m;
+                    break;
+                }
+            }
+        }
+        if (n > 0)
+            XFree(data);
+    }
+    setclienttagprop(c);
+
+    /* Handle floating centering */
+    if (c->iscentered) {
+        c->x = c->mon->mx + (c->mon->mw - WIDTH(c)) / 2;
+        c->y = c->mon->my + (c->mon->mh - HEIGHT(c)) / 2;
+    }
+
+    XSelectInput(dpy, w,
+                 EnterWindowMask | FocusChangeMask | PropertyChangeMask |
+                     StructureNotifyMask);
+    grabbuttons(c, 0);
+    if (!c->isfloating)
+        c->isfloating = c->oldstate = trans != None || c->isfixed;
+    if (c->isfloating)
+        XRaiseWindow(dpy, c->win);
+    attach(c);
+    attachstack(c);
+    XChangeProperty(dpy, root, netatom[NetClientList], XA_WINDOW, 32,
+                    PropModeAppend, (unsigned char *)&(c->win), 1);
+    XMoveResizeWindow(dpy, c->win, c->x + 2 * sw, c->y, c->w,
+                      c->h); /* some windows require this */
+    if (!HIDDEN(c))
+        setclientstate(c, NormalState);
+    if (c->mon == selmon)
+        unfocus(selmon->sel, 0);
+    c->mon->sel = c;
+    arrange(c->mon);
+    if (!HIDDEN(c))
+        XMapWindow(dpy, c->win);
+    focus(NULL);
 }
 
 void mappingnotify(XEvent *e) {
@@ -2294,12 +2315,15 @@ void movemouse(const Arg *arg) {
         ny = selmon->wy;
       else if (abs((selmon->wy + selmon->wh) - (ny + HEIGHT(c))) < snap)
         ny = selmon->wy + selmon->wh - HEIGHT(c);
-      if (!c->isfloating && selmon->lt[selmon->sellt]->arrange &&
-          (abs(nx - c->x) > snap || abs(ny - c->y) > snap))
-        togglefloating(NULL);
-      if (!selmon->lt[selmon->sellt]->arrange || c->isfloating)
-        resize(c, nx, ny, c->w, c->h, 1);
-      break;
+    if (!c->isfloating && selmon->lt[selmon->sellt]->arrange &&
+    (abs(nx - c->x) > snap || abs(ny - c->y) > snap) &&
+    (!strstr(c->name, "spterm") && !strstr(c->name, "sp-fm") && !strstr(c->name, "sp-ncmpcpp"))) {
+    togglefloating(NULL);
+}
+    if (!selmon->lt[selmon->sellt]->arrange || c->isfloating) {
+    resize(c, nx, ny, c->w, c->h, 1);
+}
+break;
     }
   } while (ev.type != ButtonRelease);
   XUngrabPointer(dpy, CurrentTime);
@@ -3161,34 +3185,56 @@ void tagmon(const Arg *arg) {
 }
 
 void togglebar(const Arg *arg) {
-  selmon->showbar = selmon->pertag->showbars[selmon->pertag->curtag] = !selmon->showbar;
-  updatebarpos(selmon);
-  resizebarwin(selmon);
-  if (showsystray) {
-    XWindowChanges wc;
-    if (!selmon->showbar)
-      wc.y = -bh;
-    else if (selmon->showbar) {
-      wc.y = selmon->gappoh;
-      if (!selmon->topbar)
-        wc.y = selmon->mh - bh + selmon->gappoh;
+    selmon->showbar = selmon->pertag->showbars[selmon->pertag->curtag] = !selmon->showbar;
+    updatebarpos(selmon);
+    resizebarwin(selmon);
+
+    if (showsystray) {
+        XWindowChanges wc;
+        if (!selmon->showbar)
+            wc.y = -bh;
+        else if (selmon->showbar) {
+            wc.y = selmon->gappoh;
+            if (!selmon->topbar)
+                wc.y = selmon->mh - bh + selmon->gappoh;
+        }
+        XConfigureWindow(dpy, systray->win, CWY, &wc);
     }
-    XConfigureWindow(dpy, systray->win, CWY, &wc);
-  }
-  arrange(selmon);
-}
+
+    arrange(selmon);
+} // <-- togglebar() function ends here
+
+// Place the togglefloating() function at the top level, after togglebar()
 
 void togglefloating(const Arg *arg) {
-  if (!selmon->sel)
-    return;
-  if (selmon->sel->isfullscreen) /* no support for fullscreen windows */
-    return;
-  selmon->sel->isfloating = !selmon->sel->isfloating || selmon->sel->isfixed;
-  if (selmon->sel->isfloating)
-    resize(selmon->sel, selmon->sel->x, selmon->sel->y, selmon->sel->w,
-           selmon->sel->h, 0);
-  arrange(selmon);
+    if (!selmon->sel)
+        return;
+
+    // Prevent toggling floating state for fullscreen windows
+    if (selmon->sel->isfullscreen)
+        return;
+
+    // Toggle the isfloating flag for the selected client
+    selmon->sel->isfloating = !selmon->sel->isfloating || selmon->sel->isfixed;
+
+    // If the client is now floating, resize it properly
+    if (selmon->sel->isfloating) {
+        resize(selmon->sel, selmon->sel->x, selmon->sel->y, selmon->sel->w, selmon->sel->h, 0);
+    }
+
+    // Correctly iterate over clients without redeclaring 'c' improperly
+    Client *c;
+    for (c = selmon->clients; c; c = c->next) {
+        if (c->isfloating) {
+            // Do something with floating clients, if needed
+        }
+    }
+
+    // Ensure the window arrangements are updated after changes
+    arrange(selmon);
 }
+
+
 
 void togglescratch(const Arg *arg) {
     Client *c;

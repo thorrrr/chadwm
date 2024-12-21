@@ -10,9 +10,10 @@ static const unsigned int gappih    = 10;       /* horiz inner gap between windo
 static const unsigned int gappiv    = 10;       /* vert inner gap between windows */
 static const unsigned int gappoh    = 10;       /* horiz outer gap between windows and screen edge */
 static const unsigned int gappov    = 10;       /* vert outer gap between windows and screen edge */
-static const int smartgaps          = 0;        /* 1 means no outer gap when there is only one window */
+static const int smartgaps          = 1;        /* 1 means no outer gap when there is only one window */
 static const unsigned int systraypinning = 0;   /* 0: sloppy systray follows selected monitor, >0: pin systray to monitor X */
 static const unsigned int systrayspacing = 2;   /* systray spacing */
+static const int swallowfloating    = 0;        /* 1 means swallow floating windows by default */
 static const int systraypinningfailfirst = 1;   /* 1: if pinning fails,display systray on the 1st monitor,False: display systray on last monitor*/
 static const int showsystray        = 1;        /* 0 means no systray */
 static const int showbar            = 1;        /* 0 means no bar */
@@ -36,6 +37,7 @@ static const char *light_down[] = {"/usr/bin/light", "-U", "5", NULL};
 static const int new_window_attach_on_end = 0; /*  1 means the new window will attach on the end; 0 means the new window will attach on the front,default is front */
 #define ICONSIZE 19   /* icon size */
 #define ICONSPACING 8 /* space between icon and title */
+#define HOME_DIR "/home/dale"
 
 static const char *fonts[]          = {"JetBrainsMono Nerd Font Mono:style:bold:size=13"};
 
@@ -96,7 +98,7 @@ static const Launcher launchers[] = {
     { discord,     "ﱲ" },
     { logseq,      "" },
     { telegram,    "" },
-    { brave_beta,  "\uf26b" },
+    { brave_beta,  "" },
        
 };
 
@@ -111,34 +113,33 @@ static const int ulineall               = 0; /* 1 to show underline on all tags,
 
 /* PATCH: scratchpads */
 typedef struct { const char *name; const void *cmd; } Sp;
-const char *spcmd1[] = {"alacritty", "--class", "spterm", "--config-file", "/home/dale/.config/alacritty/alacritty-scratchpad.toml", NULL };
-const char *spcmd2[] = {"alacritty", "--class", "sp-fm", "--config-file", "/home/dale/.config/alacritty/alacritty-scratchpad.toml", "-e", "curseradio", NULL };
-const char *spcmd3[] = {"alacritty", "--class", "sp-ncmpcpp", "--config-file", "/home/dale/.config/alacritty/alacritty-scratchpad.toml", "-e", "ncmpcpp", NULL };
+const char *spcmd1[] = {"alacritty", "--class", "spterm", "--config-file", HOME_DIR "/.config/alacritty/alacritty-scratchpad.toml", NULL };
+const char *spcmd2[] = {"alacritty", "--class", "sp-fm", "--config-file", HOME_DIR "/.config/alacritty/alacritty-scratchpad.toml", "-e", "curseradio", NULL };
+const char *spcmd3[] = {"alacritty", "--class", "sp-ncmpcpp", "--config-file", HOME_DIR "/.config/alacritty/alacritty-scratchpad.toml", "-e", "ncmpcpp", NULL };
 
 static Sp scratchpads[] = {
-    /* name          cmd  */
     {"spterm",     spcmd1},
-    {"sp-fm",       spcmd2},
-    {"sp-ncmpcpp",  spcmd3},
+    {"sp-fm",      spcmd2},
+    {"sp-ncmpcpp", spcmd3},
 };
 /* END PATCH: scratchpads */
-
 
 static const Rule rules[] = {
-    /* xprop(1):
-     *  WM_CLASS(STRING) = instance, class
-     *  WM_NAME(STRING) = title
-     */
-    /* class      instance    title       tags mask     iscentered   isfloating   monitor */
-    { "Gimp",     NULL,       NULL,       0,            0,           0,           -1 },
-    { "Firefox",  NULL,       NULL,       1 << 8,       0,           0,           -1 },
-/* PATCH: scratchpads */
-    { "spterm",     NULL,       NULL,       SPTAG(0),    1,           -1 },
-    { "sp-fm",      NULL,       NULL,       SPTAG(1),    1,           -1 },
-    { "sp-ncmpcpp", NULL,       NULL,       SPTAG(2),    1,           -1 },
-/* END PATCH: scratchpads */
-
+    /* class                instance           title    tags mask    isfloating   monitor   center */
+    { "discord",            NULL,              NULL,    1 << 9,     0,          -1,       0 }, // Discord on tag 10
+    { "Logseq",             NULL,              NULL,    1 << 2,     0,          -1,       0 }, // Logseq on tag 3
+    { "sublime_text",       NULL,              NULL,    0,          1,          -1 },
+    { "mpv",                NULL,              NULL,    0,          1,          -1,       1 }, // Video player always floating
+    { "Pavucontrol",        NULL,              NULL,    0,          1,          -1,       1 }, // Volume control floating
+    { "File-roller",        NULL,              NULL,    0,          1,          -1,       1 }, // Archive manager floating
+    
+    /* Scratchpads */
+    { "spterm",             NULL,              NULL,    SPTAG(0),   1,          -1,       1 }, // Floating, centered terminal scratchpad
+    { "sp-fm",              NULL,              NULL,    SPTAG(1),   1,          -1,       1 }, // Floating, centered file manager
+    { "sp-ncmpcpp",         NULL,              NULL,    SPTAG(2),   1,          -1,       1 }, // Floating, centered music player
 };
+
+
 
 /* layout(s) */
 static const float mfact     = 0.50; /* factor of master area size [0.05..0.95] */
@@ -152,20 +153,11 @@ static const int lockfullscreen = 1; /* 1 will force focus on the fullscreen win
 
 static const Layout layouts[] = {
     /* symbol     arrange function */
-    { "[]=",      tile },    /* first entry is default */
-    { "[M]",      monocle },
-    { "[@]",      spiral },
-    { "[\\]",     dwindle },
-    { "H[]",      deck },
-    { "TTT",      bstack },
-    { "===",      bstackhoriz },
-    { "HHH",      grid },
-    { "###",      nrowgrid },
-    { "---",      horizgrid },
-    { ":::",      gaplessgrid },
-    { "|M|",      centeredmaster },
-    { ">M>",      centeredfloatingmaster },
-    { "><>",      NULL },    /* no layout function means floating behavior */
+    { "[]=",      tile },       /* main tiling mode */
+    { "[M]",      monocle },    /* full screen */
+    { "|M|",      centeredmaster }, /* good for ultrawide */
+    { "[@]",      spiral },     /* fibonacci */
+    { "><>",      NULL },       /* floating */
     { NULL,       NULL },
 };
 
@@ -187,10 +179,10 @@ static const Key keys[] = {
 
     // brightness and audio 
     {0,             XF86XK_AudioLowerVolume,    spawn, {.v = downvol}},
-	{0,             XF86XK_AudioMute, spawn,    {.v = mutevol }},
-	{0,             XF86XK_AudioRaiseVolume,    spawn, {.v = upvol}},
-	{0,				XF86XK_MonBrightnessUp,     spawn,	{.v = light_up}},
-	{0,				XF86XK_MonBrightnessDown,   spawn,	{.v = light_down}},
+    {0,             XF86XK_AudioMute, spawn,    {.v = mutevol }},
+    {0,             XF86XK_AudioRaiseVolume,    spawn, {.v = upvol}},
+    {0,             XF86XK_MonBrightnessUp,     spawn,    {.v = light_up}},
+    {0,             XF86XK_MonBrightnessDown,   spawn,    {.v = light_down}},
 
     // screenshot fullscreen and cropped
     {MODKEY|ControlMask,                XK_u,       spawn,
@@ -307,7 +299,7 @@ static const Key keys[] = {
 
  
 /* PATCH: scratchpads */
-    { MODKEY,                           XK_a,      togglescratch,  {.ui = 0 } },
+    { MODKEY,                           XK_z,      togglescratch,  {.ui = 0 } },
     { MODKEY|ShiftMask,                 XK_y,      togglescratch,  {.ui = 1 } },
     { MODKEY|ShiftMask,                 XK_m,      togglescratch,  {.ui = 2 } },
 /* END PATCH: scratchpads */
